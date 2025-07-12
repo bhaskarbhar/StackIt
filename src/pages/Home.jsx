@@ -191,9 +191,10 @@ export default function Home() {
                     </h3>
                   </Link>
                   
-                  <p className="mt-2 text-gray-600">
-                    {truncateText(question.description, 200)}
-                  </p>
+                  <div
+                    className="mt-2 text-gray-600 prose max-w-none"
+                    dangerouslySetInnerHTML={{ __html: question.description }}
+                  />
 
                   {/* Tags */}
                   <div className="mt-3 flex flex-wrap gap-2">
