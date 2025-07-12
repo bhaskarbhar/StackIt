@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { MessageSquare, Eye, ThumbsUp, Tag, Plus, Search } from 'lucide-react';
 import api from '../lib/api';
