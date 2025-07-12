@@ -5,7 +5,8 @@ from ..models.user import UserCreate, User, UserUpdate, UserInDB
 from ..auth.jwt import create_access_token, get_password_hash, verify_password
 from ..auth.dependencies import get_current_active_user
 from bson import ObjectId
-from datetime import datetime
+import datetime
+import re
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -29,6 +30,18 @@ async def register(user_data: UserCreate):
             detail="Email already registered"
         )
     
+    # Password policy enforcement
+    password = user_data.password
+    if (len(password) < 8 or
+        not re.search(r"[A-Z]", password) or
+        not re.search(r"[a-z]", password) or
+        not re.search(r"[0-9]", password) or
+        not re.search(r"[^A-Za-z0-9]", password)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one digit, and one special character."
+        )
+    
     # Create new user
     hashed_password = get_password_hash(user_data.password)
     user_dict = user_data.dict()
@@ -36,8 +49,8 @@ async def register(user_data: UserCreate):
     user_dict["hashed_password"] = hashed_password
     user_dict["_id"] = ObjectId()
     user_dict["reputation"] = 0  # Set default reputation for new users
-    user_dict["created_at"] = datetime.utcnow()
-    user_dict["updated_at"] = datetime.utcnow()
+    user_dict["created_at"] = datetime.datetime.now()
+    user_dict["updated_at"] = datetime.datetime.now()
     
     result = await users_collection.insert_one(user_dict)
     user_dict["id"] = str(result.inserted_id)
@@ -131,7 +144,7 @@ async def update_current_user(
     if "password" in update_data:
         update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
     
-    update_data["updated_at"] = datetime.utcnow()
+    update_data["updated_at"] = datetime.datetime.now()
     
     await users_collection.update_one(
         {"_id": current_user.id},

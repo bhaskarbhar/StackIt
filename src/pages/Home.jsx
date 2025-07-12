@@ -3,9 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { MessageSquare, Eye, ThumbsUp, Tag, Plus, Search } from 'lucide-react';
 import api from '../lib/api';
 import { formatDate, truncateText } from '../lib/utils';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Home() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('newest');
@@ -33,7 +35,7 @@ export default function Home() {
           params.append('sort_order', 'desc');
           break;
         case 'best':
-          params.append('sort_by', 'views');
+          params.append('sort_by', 'answers_count');
           params.append('sort_order', 'desc');
           break;
         default:
@@ -84,13 +86,15 @@ export default function Home() {
           <h1 className="text-3xl font-bold text-gray-900">Recent Questions</h1>
           <p className="mt-2 text-gray-600">Find answers to your questions or help others</p>
         </div>
-        <Link
-          to="/ask"
-          className="mt-4 sm:mt-0 btn btn-primary flex items-center space-x-2"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Ask Question</span>
-        </Link>
+        {(!user || user.role !== 'admin') && (
+          <Link
+            to="/ask"
+            className="mt-4 sm:mt-0 btn btn-primary flex items-center space-x-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Ask Question</span>
+          </Link>
+        )}
       </div>
 
       {/* Search and Filter Bar */}

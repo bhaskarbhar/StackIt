@@ -166,8 +166,23 @@ export default function Register() {
                   {...register('password', {
                     required: 'Password is required',
                     minLength: {
-                      value: 6,
-                      message: 'Password must be at least 6 characters long',
+                      value: 8,
+                      message: 'Password must be at least 8 characters long',
+                    },
+                    validate: value => {
+                      if (!/[A-Z]/.test(value)) {
+                        return 'Password must include at least one uppercase letter';
+                      }
+                      if (!/[a-z]/.test(value)) {
+                        return 'Password must include at least one lowercase letter';
+                      }
+                      if (!/[0-9]/.test(value)) {
+                        return 'Password must include at least one digit';
+                      }
+                      if (!/[^A-Za-z0-9]/.test(value)) {
+                        return 'Password must include at least one special character';
+                      }
+                      return true;
                     },
                   })}
                   className="input pr-10"

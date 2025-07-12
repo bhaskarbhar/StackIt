@@ -3,8 +3,9 @@ from typing import List
 from ..database import get_collection
 from ..models.notification import Notification, NotificationCreate
 from ..auth.dependencies import get_current_active_user
-from ..models.user import UserInDB
+from ..models.user import UserInDB, PyObjectId
 from bson import ObjectId
+import datetime
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -17,14 +18,29 @@ async def get_notifications(
 ):
     notifications_collection = get_collection("notifications")
     
-    filter_query = {"recipient_id": current_user.id}
+    filter_query = {"recipient_id": str(current_user.id)}
     if unread_only:
         filter_query["is_read"] = False
     
     cursor = notifications_collection.find(filter_query).sort("created_at", -1).skip(skip).limit(limit)
     notifications = await cursor.to_list(length=limit)
     
-    return [Notification(**{**n, "id": str(n["_id"])}) for n in notifications]
+    def convert_notification(n):
+        if not n.get("recipient_id"):  # recipient_id is required
+            return None
+        return Notification(
+            id=str(n["_id"]),
+            recipient_id=PyObjectId(n["recipient_id"]),
+            type=n.get("type"),
+            title=n.get("title"),
+            message=n.get("message"),
+            related_question_id=PyObjectId(n["related_question_id"]) if n.get("related_question_id") else None,
+            related_answer_id=PyObjectId(n["related_answer_id"]) if n.get("related_answer_id") else None,
+            sender_username=n.get("sender_username"),
+            is_read=bool(n.get("is_read", False)),
+            created_at=n.get("created_at") or datetime.datetime.now(),
+        )
+    return [notif for n in notifications if (notif := convert_notification(n))]
 
 @router.get("/unread-count")
 async def get_unread_count(current_user: UserInDB = Depends(get_current_active_user)):
@@ -76,7 +92,7 @@ async def mark_all_notifications_read(current_user: UserInDB = Depends(get_curre
     
     await notifications_collection.update_many(
         {
-            "recipient_id": current_user.id,
+            "recipient_id": str(current_user.id),
             "is_read": False
         },
         {"$set": {"is_read": True}}

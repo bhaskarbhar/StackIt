@@ -26,6 +26,8 @@ export default function QuestionDetail() {
   const [loading, setLoading] = useState(true);
   const [newAnswer, setNewAnswer] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState({ id: null, type: null });
 
   useEffect(() => {
     fetchQuestionAndAnswers();
@@ -61,53 +63,44 @@ export default function QuestionDetail() {
     }
   };
 
-  const handleAcceptAnswer = async (answerId) => {
-    try {
-      await api.post(`/answers/${answerId}/accept`);
-      fetchQuestionAndAnswers(); // Refresh data
-      toast.success('Answer accepted!');
-    } catch (error) {
-      toast.error('Failed to accept answer');
-    }
-  };
-
   const handleSubmitAnswer = async () => {
     if (!newAnswer.trim()) {
       toast.error('Please enter an answer');
       return;
     }
 
+    setSubmitting(true);
     try {
-      setSubmitting(true);
-      await api.post('/answers/', {
+      const response = await api.post('/answers/', {
         content: newAnswer
       }, {
         params: { question_id: id }
       });
-      
       setNewAnswer('');
       fetchQuestionAndAnswers();
       toast.success('Answer posted successfully!');
     } catch (error) {
+      console.error('Post answer error:', error);
       toast.error('Failed to post answer');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = async (itemId, itemType) => {
-    if (!confirm(`Are you sure you want to delete this ${itemType}?`)) {
-      return;
-    }
+  const handleDelete = (itemId, itemType) => {
+    setDeleteTarget({ id: itemId, type: itemType });
+    setShowDeleteModal(true);
+  };
 
+  const confirmDelete = async () => {
+    const { id: itemId, type: itemType } = deleteTarget;
+    setShowDeleteModal(false);
     try {
-      const endpoint = itemType === 'question' 
+      const endpoint = itemType === 'question'
         ? `/questions/${itemId}`
         : `/answers/${itemId}`;
-      
       await api.delete(endpoint);
-      toast.success(`${itemType} deleted successfully`);
-      
+      toast.success(`${itemType.charAt(0).toUpperCase() + itemType.slice(1)} deleted successfully!`);
       if (itemType === 'question') {
         navigate('/');
       } else {
@@ -136,6 +129,29 @@ export default function QuestionDetail() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900">Confirm Deletion</h2>
+            <p className="mb-6 text-gray-700">Are you sure you want to delete this {deleteTarget.type}? This action cannot be undone.</p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="btn btn-outline"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="btn btn-danger"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Back Button */}
       <button
         onClick={() => navigate('/')}
@@ -174,7 +190,7 @@ export default function QuestionDetail() {
                 {question.title}
               </h1>
               
-              {user && (user.id === question.author_id || user.role === 'admin') && (
+              {user && user.id === question.author_id && (
                 <div className="flex space-x-2">
                   <button
                     onClick={() => navigate(`/question/${question.id}/edit`)}
@@ -182,6 +198,10 @@ export default function QuestionDetail() {
                   >
                     <Edit className="w-4 h-4" />
                   </button>
+                </div>
+              )}
+              {user && (user.role === 'admin' || user.id === question.author_id) && (
+                <div className="flex space-x-2">
                   <button
                     onClick={() => handleDelete(question.id, 'question')}
                     className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
@@ -269,7 +289,7 @@ export default function QuestionDetail() {
                     dangerouslySetInnerHTML={{ __html: answer.content }}
                   />
                   
-                  {user && (user.id === answer.author_id || user.role === 'admin') && (
+                  {user && answer.author_id === user.id && (
                     <div className="flex space-x-2 ml-4">
                       <button
                         onClick={() => navigate(`/answer/${answer.id}/edit`)}
@@ -277,6 +297,10 @@ export default function QuestionDetail() {
                       >
                         <Edit className="w-4 h-4" />
                       </button>
+                    </div>
+                  )}
+                  {user && (user.role === 'admin' || answer.author_id === user.id) && (
+                    <div className="flex space-x-2 ml-4">
                       <button
                         onClick={() => handleDelete(answer.id, 'answer')}
                         className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
@@ -292,23 +316,7 @@ export default function QuestionDetail() {
                   <div className="flex items-center space-x-4 text-sm text-gray-500">
                     <span>Answered by {answer.author_username}</span>
                     <span>{formatDate(answer.created_at)}</span>
-                    {answer.is_accepted && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        Accepted
-                      </span>
-                    )}
                   </div>
-
-                  {/* Accept Answer Button */}
-                  {user && user.id === question.author_id && !question.is_answered && (
-                    <button
-                      onClick={() => handleAcceptAnswer(answer.id)}
-                      className="btn btn-outline text-sm"
-                    >
-                      Accept Answer
-                    </button>
-                  )}
                 </div>
               </div>
             </div>

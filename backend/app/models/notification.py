@@ -21,7 +21,7 @@ class NotificationCreate(NotificationBase):
 class NotificationInDB(NotificationBase):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     is_read: bool = False
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now)
 
     class Config:
         populate_by_name = True

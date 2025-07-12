@@ -19,9 +19,9 @@ class AnswerInDB(AnswerBase):
     author_id: PyObjectId
     author_username: str
     votes: int = 0
-    is_accepted: bool = False
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    user_votes: dict = Field(default_factory=dict, description="Track individual user votes: {user_id: vote_value}")
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
 
     class Config:
         populate_by_name = True
@@ -34,7 +34,7 @@ class Answer(AnswerBase):
     author_id: str
     author_username: str
     votes: int
-    is_accepted: bool
+    user_votes: dict
     created_at: datetime
     updated_at: datetime
 

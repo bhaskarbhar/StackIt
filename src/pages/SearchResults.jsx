@@ -50,7 +50,7 @@ export default function SearchResults() {
           params.append('sort_order', 'desc');
           break;
         case 'best':
-          params.append('sort_by', 'views');
+          params.append('sort_by', 'answers_count');
           params.append('sort_order', 'desc');
           break;
         default:

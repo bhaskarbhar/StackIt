@@ -4,17 +4,16 @@ import { useAuth } from '../contexts/AuthContext';
 import { 
   Home, 
   Plus, 
-  Search, 
   Bell, 
   User, 
-  LogOut, 
-  Settings,
+  LogOut,
   Menu,
   X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import StackItLogo from '../assets/StackIt-logo.png';
 import toast from 'react-hot-toast';
+import api from '../lib/api';
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
@@ -23,13 +22,17 @@ export default function Layout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const userMenuRef = useRef(null);
+  const notificationsRef = useRef(null);
 
-  const handleLogout = () => {
-    logout();
-    toast.success('Successfully signed out');
-    navigate('/login');
-  };
+  // Fetch unread count on mount and when notifications change
+  useEffect(() => {
+    if (user) fetchUnreadCount();
+    // eslint-disable-next-line
+  }, [user]);
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -37,21 +40,59 @@ export default function Layout({ children }) {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setUserMenuOpen(false);
       }
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target)) {
+        setNotificationsOpen(false);
+      }
     };
-
-    if (userMenuOpen) {
+    if (userMenuOpen || notificationsOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
-
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [userMenuOpen]);
+  }, [userMenuOpen, notificationsOpen]);
+
+  const fetchNotifications = async () => {
+    if (!user) return;
+    setNotificationsLoading(true);
+    try {
+      const res = await api.get('/notifications/?limit=20');
+      setNotifications(res.data);
+    } catch (error) {
+      toast.error('Failed to load notifications');
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
+  const fetchUnreadCount = async () => {
+    try {
+      const res = await api.get('/notifications/unread-count');
+      setUnreadCount(res.data.unread_count);
+    } catch (error) {
+      setUnreadCount(0);
+    }
+  };
+
+  const handleBellClick = async () => {
+    if (!notificationsOpen) {
+      await fetchNotifications();
+      await api.post('/notifications/mark-all-read');
+      setUnreadCount(0);
+    }
+    setNotificationsOpen((open) => !open);
+  };
+
+  const handleLogout = () => {
+    logout();
+    toast.success('Successfully signed out');
+    navigate('/login');
+  };
 
   const navigation = [
     { name: 'Home', href: '/', icon: Home },
-    { name: 'Ask Question', href: '/ask', icon: Plus },
-    { name: 'Search', href: '/search', icon: Search },
+    // Only show 'Ask Question' if not admin
+    ...(user && user.role === 'admin' ? [] : [{ name: 'Ask Question', href: '/ask', icon: Plus }]),
   ];
 
   return (
@@ -97,14 +138,43 @@ export default function Layout({ children }) {
             {/* User Menu */}
             <div className="flex items-center space-x-4">
               {/* Notifications */}
-              <button
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-              >
-                <Bell className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
-              </button>
-
+              {user && (
+                <div className="relative" ref={notificationsRef}>
+                  <button
+                    onClick={handleBellClick}
+                    className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                  >
+                    <Bell className="w-5 h-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs flex items-center justify-center rounded-full">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </button>
+                  {notificationsOpen && (
+                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg py-2 z-50 border border-gray-200 max-h-96 overflow-y-auto">
+                      <div className="px-4 py-2 border-b border-gray-100 font-semibold text-gray-900 flex items-center justify-between">
+                        Notifications
+                        {notificationsLoading && <span className="text-xs text-gray-400 ml-2">Loading...</span>}
+                      </div>
+                      {notifications.length === 0 && !notificationsLoading ? (
+                        <div className="px-4 py-6 text-center text-gray-500 text-sm">No notifications</div>
+                      ) : (
+                        notifications.map((n) => (
+                          <div key={n.id} className={cn(
+                            'px-4 py-3 border-b border-gray-100 text-sm',
+                            !n.is_read ? 'bg-primary-50' : ''
+                          )}>
+                            <div className="font-medium text-gray-800">{n.title}</div>
+                            <div className="text-gray-600">{n.message}</div>
+                            <div className="text-xs text-gray-400 mt-1">{new Date(n.created_at).toLocaleString()}</div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
               {/* User Menu */}
               {user ? (
                 <div className="relative" ref={userMenuRef}>
@@ -129,22 +199,6 @@ export default function Layout({ children }) {
                         <p className="text-sm font-medium text-gray-900">{user.full_name}</p>
                         <p className="text-xs text-gray-500">{user.email}</p>
                       </div>
-                      <Link
-                        to="/profile"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                      >
-                        <User className="w-4 h-4" />
-                        <span>Profile</span>
-                      </Link>
-                      <Link
-                        to="/settings"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                      >
-                        <Settings className="w-4 h-4" />
-                        <span>Settings</span>
-                      </Link>
                       <button
                         onClick={() => {
                           handleLogout();

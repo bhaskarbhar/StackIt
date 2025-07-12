@@ -6,7 +6,9 @@ from ..models.answer import Answer, AnswerCreate
 from ..auth.dependencies import get_current_active_user, get_current_user
 from ..models.user import UserInDB
 from bson import ObjectId
-from datetime import datetime
+import datetime
+from ..models.notification import NotificationCreate
+from ..models.user import PyObjectId
 
 router = APIRouter(prefix="/questions", tags=["questions"])
 
@@ -21,11 +23,12 @@ async def create_question(
     question_dict["author_id"] = str(current_user.id)  # Convert to string for Question model
     question_dict["author_username"] = current_user.username
     question_dict["votes"] = 0
+    question_dict["user_votes"] = {}
     question_dict["views"] = 0
     question_dict["answers_count"] = 0
     question_dict["is_answered"] = False
-    question_dict["created_at"] = datetime.utcnow()
-    question_dict["updated_at"] = datetime.utcnow()
+    question_dict["created_at"] = datetime.datetime.now()
+    question_dict["updated_at"] = datetime.datetime.now()
     
     # Create the document for MongoDB (with ObjectId)
     mongo_doc = question_dict.copy()
@@ -63,7 +66,7 @@ async def get_questions(
     cursor = questions_collection.find(filter_query).sort(sort_query).skip(skip).limit(limit)
     questions = await cursor.to_list(length=limit)
     
-    return [Question(**{**q, "id": str(q["_id"]), "author_id": str(q["author_id"])}) for q in questions if q]
+    return [Question(**{**q, "id": str(q["_id"]), "author_id": str(q["author_id"]), "user_votes": q.get("user_votes", {})}) for q in questions if q]
 
 @router.get("/{question_id}", response_model=Question)
 async def get_question(question_id: str):
@@ -83,7 +86,7 @@ async def get_question(question_id: str):
             {"$inc": {"views": 1}}
         )
         
-        return Question(**{**question, "id": str(question["_id"]), "author_id": str(question["author_id"])})
+        return Question(**{**question, "id": str(question["_id"]), "author_id": str(question["author_id"]), "user_votes": question.get("user_votes", {})})
     except:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -106,7 +109,7 @@ async def update_question(
                 detail="Question not found"
             )
         
-        if str(question["author_id"]) != str(current_user.id) and current_user.role != "admin":
+        if str(question["author_id"]) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to update this question"
@@ -119,7 +122,7 @@ async def update_question(
                 detail="No data to update"
             )
         
-        update_data["updated_at"] = datetime.utcnow()
+        update_data["updated_at"] = datetime.datetime.now()
         
         await questions_collection.update_one(
             {"_id": ObjectId(question_id)},
@@ -132,7 +135,7 @@ async def update_question(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Question not found after update"
             )
-        return Question(**{**updated_question, "id": str(updated_question["_id"]), "author_id": str(updated_question["author_id"])})
+        return Question(**{**updated_question, "id": str(updated_question["_id"]), "author_id": str(updated_question["author_id"]), "user_votes": updated_question.get("user_votes", {})})
     except:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -181,7 +184,7 @@ async def vote_question(
     current_user: UserInDB = Depends(get_current_active_user)
 ):
     questions_collection = get_collection("questions")
-    
+    notifications_collection = get_collection("notifications")
     try:
         question = await questions_collection.find_one({"_id": ObjectId(question_id)})
         if not question:
@@ -191,32 +194,34 @@ async def vote_question(
             )
         
         # Check if user already voted
-        vote_key = f"votes.{str(current_user.id)}"
-        existing_vote = question.get("votes", {}).get(str(current_user.id))
+        user_votes = question.get("user_votes", {})
+        user_id_str = str(current_user.id)
+        existing_vote = user_votes.get(user_id_str, 0)
         
         vote_value = 1 if vote_type == "upvote" else -1
         
         if existing_vote == vote_value:
-            # Remove vote
+            # Remove vote - user is clicking the same vote type again
             await questions_collection.update_one(
                 {"_id": ObjectId(question_id)},
                 {
-                    "$unset": {vote_key: ""},
+                    "$unset": {f"user_votes.{user_id_str}": ""},
                     "$inc": {"votes": -vote_value}
                 }
             )
             return {"message": "Vote removed"}
         else:
-            # Update vote
+            # Update vote - either new vote or changing vote type
+            vote_diff = vote_value - existing_vote
             await questions_collection.update_one(
                 {"_id": ObjectId(question_id)},
                 {
-                    "$set": {vote_key: vote_value},
-                    "$inc": {"votes": vote_value - (existing_vote or 0)}
+                    "$set": {f"user_votes.{user_id_str}": vote_value},
+                    "$inc": {"votes": vote_diff}
                 }
             )
             return {"message": f"Question {vote_type}d"}
-    except:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid question ID"

@@ -22,11 +22,11 @@ class QuestionInDB(QuestionBase):
     author_id: PyObjectId
     author_username: str
     votes: int = 0
+    user_votes: dict = Field(default_factory=dict, description="Track individual user votes: {user_id: vote_value}")
     views: int = 0
     answers_count: int = 0
-    is_answered: bool = False
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
 
     class Config:
         populate_by_name = True
@@ -38,6 +38,7 @@ class Question(QuestionBase):
     author_id: str
     author_username: str
     votes: int
+    user_votes: dict
     views: int
     answers_count: int
     is_answered: bool

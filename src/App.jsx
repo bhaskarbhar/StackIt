@@ -9,6 +9,7 @@ import Register from './pages/Register';
 import AskQuestion from './pages/AskQuestion';
 import QuestionDetail from './pages/QuestionDetail';
 import SearchResults from './pages/SearchResults';
+import EditQuestion from './pages/EditQuestion';
 import './index.css';
 
 // Create a client
@@ -77,6 +78,13 @@ function AppContent() {
           <Layout>
             <QuestionDetail />
           </Layout>
+        } />
+        <Route path="/question/:id/edit" element={
+          <ProtectedRoute>
+            <Layout>
+              <EditQuestion />
+            </Layout>
+          </ProtectedRoute>
         } />
         <Route path="/search" element={
           <Layout>
