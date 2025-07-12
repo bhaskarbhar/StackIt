@@ -36,4 +36,9 @@ api.interceptors.response.use(
   }
 );
 
+// Fetch platform statistics (admin only)
+export async function fetchAdminStats() {
+  return api.get('/admin/stats');
+}
+
 export default api; 

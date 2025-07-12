@@ -4,6 +4,7 @@ import { MessageSquare, Eye, ThumbsUp, Tag, Plus, Search } from 'lucide-react';
 import api from '../lib/api';
 import { formatDate, truncateText } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
+import { fetchAdminStats } from '../lib/api';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -12,10 +13,33 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('newest');
   const [searchTerm, setSearchTerm] = useState('');
+  // Admin stats state
+  const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState(null);
 
   useEffect(() => {
     fetchQuestions();
   }, [filter]);
+
+  useEffect(() => {
+    if (user && user.role === 'admin') {
+      fetchStats();
+    }
+  }, [user]);
+
+  const fetchStats = async () => {
+    setStatsLoading(true);
+    setStatsError(null);
+    try {
+      const res = await fetchAdminStats();
+      setStats(res.data);
+    } catch (err) {
+      setStatsError('Failed to load statistics');
+    } finally {
+      setStatsLoading(false);
+    }
+  };
 
   const fetchQuestions = async () => {
     try {
@@ -80,6 +104,42 @@ export default function Home() {
 
   return (
     <div className="space-y-6">
+      {/* Admin Platform Statistics */}
+      {user && user.role === 'admin' && (
+        <div className="card p-6 bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 mb-4">
+          <h2 className="text-2xl font-bold text-blue-900 mb-4 flex items-center">
+            Platform Statistics
+          </h2>
+          {statsLoading ? (
+            <div className="text-blue-700">Loading statistics...</div>
+          ) : statsError ? (
+            <div className="text-red-500">{statsError}</div>
+          ) : stats ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+              <div className="flex flex-col items-center">
+                <span className="text-3xl font-bold text-blue-800">{stats.total_users}</span>
+                <span className="text-sm text-blue-700">Total Users</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-3xl font-bold text-blue-800">{stats.total_questions}</span>
+                <span className="text-sm text-blue-700">Questions</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-3xl font-bold text-blue-800">{stats.total_answers}</span>
+                <span className="text-sm text-blue-700">Answers</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-3xl font-bold text-blue-800">{stats.answered_questions}</span>
+                <span className="text-sm text-blue-700">Answered Qs</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-3xl font-bold text-blue-800">{stats.unanswered_questions}</span>
+                <span className="text-sm text-blue-700">Unanswered Qs</span>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
