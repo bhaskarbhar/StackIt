@@ -128,14 +128,6 @@ export default function Home() {
                 <span className="text-3xl font-bold text-blue-800">{stats.total_answers}</span>
                 <span className="text-sm text-blue-700">Answers</span>
               </div>
-              <div className="flex flex-col items-center">
-                <span className="text-3xl font-bold text-blue-800">{stats.answered_questions}</span>
-                <span className="text-sm text-blue-700">Answered Qs</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-3xl font-bold text-blue-800">{stats.unanswered_questions}</span>
-                <span className="text-sm text-blue-700">Unanswered Qs</span>
-              </div>
             </div>
           ) : null}
         </div>
