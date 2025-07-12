@@ -1,4 +1,5 @@
 # StackIt - A Minimal Q&A Forum Platform
+<img width="967" height="456" alt="image" src="https://github.com/user-attachments/assets/a03ca1a8-6828-4537-b19b-3f2a66adb0e8" />
 
 StackIt is a modern, minimal question-and-answer platform built with FastAPI (backend) and React (frontend). It supports collaborative learning and structured knowledge sharing with a focus on simplicity and user experience.
 
